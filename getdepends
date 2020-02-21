@@ -1,0 +1,89 @@
+#!/bin/bash
+
+usage() { echo "Usage: $0 [-i <input file path>] [-f <format output for PKGBUILD>] [-e <exclude core packages>]" 1>&2; exit 0; }
+
+while getopts ":i:fe" o; do
+    case "${o}" in
+        i)
+            i=${OPTARG}
+            INPATH=$(readlink -mn "$i")
+            ;;
+        f)
+            FMT=1
+            ;;
+        e)
+            EXC=1
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ ! -e "$INPATH" ]; then
+    echo "The specified input path does not exist."
+    usage
+fi
+
+LIBS=$(ldd "$INPATH" | sort)
+
+TAB=$'\t'
+IFS=$'\n'
+PKGS=()
+
+for l in $LIBS; do
+    # strip all characters from ldd output up to "=> "
+    l="${l#*=> }"
+
+    # strip all characters from ldd output from " (" to end of string
+    l="${l% (*}"
+
+    # continue if library path doesn't exist
+    if [ ! -e "$l" ]; then continue; fi
+
+    # get name of package that contains library file path
+    PKG=$(pkgfile -ri "$l")
+
+    # continue if no package found
+    if [ -z "$PKG" ]; then continue; fi
+
+    # exclude option detected. skip core packages.
+    if [ ! -z "$EXC" ] && [[ "${PKG}" =~ ^core/ ]]; then continue; fi
+
+    # strip all characters up to leading slash (i.e., core/readline)
+    PKG="${PKG#*/}"
+
+    # strip all characters following a new line. this may occur
+    # if the same file and path are found in multiple packages.
+    # since there's no way of determining which package the app
+    # requires when there are duplicates of the same file we just
+    # take the first package listed.
+    PKG=${PKG%%"$IFS"*}
+
+    if [ ! -z "$FMT" ]; then
+        # format option detected. add tabs and single quotes.
+        PKGS+=("$TAB'${PKG}'")
+    else
+        # do not format output
+        PKGS+=("${PKG}")
+    fi
+done
+
+# sort a-z and remove duplicates
+PKGSORT=($(sort -u <<< "${PKGS[*]}"))
+
+if [ ! -z "$FMT" ]; then
+    # format option detected. declare depends array.
+    echo "depends=("
+fi
+
+printf '%s\n' "${PKGSORT[@]}"
+
+if [ ! -z "$FMT" ]; then
+    # format option detected. close depends array.
+    echo -n ")"
+fi
+
+unset IFS
+
