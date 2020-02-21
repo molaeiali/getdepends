@@ -18,3 +18,14 @@ core/glibc: For `ldd`
 core/coreutils: For `sort`, `readlink`
 extra/pkgfile: For `pkgfile`
 ```
+
+# Installation
+
+Install from [AUR](https://aur.archlinux.org/packages/getdepends/):
+```bash
+yay -S getdepends
+```
+
+# Attribution
+
+Code is copied from this user: [edotux](https://unix.stackexchange.com/users/218253/edotux) on [stackexchange](stackexchange.com)
